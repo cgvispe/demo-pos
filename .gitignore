@@ -1,0 +1,38 @@
+# Dependencies
+node_modules/
+client/node_modules/
+server/node_modules/
+
+# Build output
+client/dist/
+client/.vite/
+
+# Uploaded files (product images, logos) — don't commit user data
+server/uploads/*
+!server/uploads/.gitkeep
+
+# Environment / secrets
+.env
+.env.local
+.env.*.local
+
+# Logs
+npm-debug.log*
+nodemon-debug.log*
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+
+# Database — keep the seed template but not production data
+# If you want to commit the default seed, remove the next line
+# server/data/db.json

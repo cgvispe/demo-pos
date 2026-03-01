@@ -1,0 +1,137 @@
+{
+  "users": [
+    {
+      "id": "u1",
+      "username": "admin",
+      "passwordHash": "$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi",
+      "role": "manager",
+      "name": "Administrator"
+    },
+    {
+      "id": "u2",
+      "username": "cashier",
+      "passwordHash": "$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi",
+      "role": "cashier",
+      "name": "Cashier 1"
+    }
+  ],
+  "items": [
+    {
+      "id": "i1",
+      "code": "COF001",
+      "name": "Espresso",
+      "price": 2.5,
+      "category": "Drinks",
+      "imageUrl": null,
+      "emoji": "☕",
+      "active": true
+    },
+    {
+      "id": "i2",
+      "code": "COF002",
+      "name": "Cappuccino",
+      "price": 3.2,
+      "category": "Drinks",
+      "imageUrl": null,
+      "emoji": "🧋",
+      "active": true
+    },
+    {
+      "id": "i3",
+      "code": "COF003",
+      "name": "Latte",
+      "price": 3.5,
+      "category": "Drinks",
+      "imageUrl": null,
+      "emoji": "☕",
+      "active": true
+    },
+    {
+      "id": "i4",
+      "code": "WAT001",
+      "name": "Mineral Water",
+      "price": 1.2,
+      "category": "Drinks",
+      "imageUrl": null,
+      "emoji": "💧",
+      "active": true
+    },
+    {
+      "id": "i5",
+      "code": "FOO001",
+      "name": "Croissant",
+      "price": 2.8,
+      "category": "Food",
+      "imageUrl": null,
+      "emoji": "🥐",
+      "active": true
+    },
+    {
+      "id": "i6",
+      "code": "FOO002",
+      "name": "Sandwich",
+      "price": 4.5,
+      "category": "Food",
+      "imageUrl": null,
+      "emoji": "🥪",
+      "active": true
+    },
+    {
+      "id": "i7",
+      "code": "FOO003",
+      "name": "Muffin",
+      "price": 3,
+      "category": "Food",
+      "imageUrl": null,
+      "emoji": "🧁",
+      "active": true
+    },
+    {
+      "id": "i8",
+      "code": "SNK001",
+      "name": "Chips",
+      "price": 1.8,
+      "category": "Snacks",
+      "imageUrl": null,
+      "emoji": "🍿",
+      "active": true
+    },
+    {
+      "id": "6a9b605f-5d1b-4f42-a9a3-3ab07877ba7e",
+      "code": "FRU001",
+      "name": "Banana",
+      "price": 3.3,
+      "category": "Fruits",
+      "imageUrl": null,
+      "emoji": "🍌 ",
+      "active": true
+    }
+  ],
+  "settings": {
+    "businessName": "Demo POS Store",
+    "currency": "EUR",
+    "currencySymbol": "€",
+    "locale": "es-ES",
+    "sesami": {
+      "ip": "192.168.1.100",
+      "port": "3000",
+      "useHttps": false,
+      "posId": "POS1",
+      "username": "DEMPOS",
+      "secretKey": "your-256-bit-secret"
+    },
+    "theme": {
+      "mode": "dark",
+      "primaryColor": "#00c4b3",
+      "fontFamily": "Inter",
+      "logoUrl": null
+    }
+  },
+  "categories": [
+    "Drinks",
+    "Food",
+    "Fruits",
+    "Snacks"
+  ],
+  "transactions": []
+}
