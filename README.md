@@ -336,8 +336,8 @@ GET /api/sesami/operation/:id  (every 1.5 seconds)
       ▼
   ┌───────────────────────────────────────────────────────┐
   │  status 1/2  → keep polling                           │
-  │  status 4/5  → SUCCESS  → finish → LOGOUT → save tx  │
-  │  status 8    → SUCCESS  → finish → LOGOUT → save tx  │
+  │  status 4/5  → SUCCESS  → finish → LOGOUT → save tx   │
+  │  status 8    → SUCCESS  → finish → LOGOUT → save tx   │
   │  status 7    → NO CHANGE → cashier: Finish or Cancel  │
   │  status 3/9  → CANCELLED by machine → LOGOUT          │
   │  status 6    → ERROR → LOGOUT                         │
