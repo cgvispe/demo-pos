@@ -194,6 +194,41 @@ cd demo-pos
 npm run install:all
 ```
 
+> ⚠️ `node_modules` are not included in the repository. You must run `npm run install:all` after every fresh clone — on every platform (Windows, macOS, Linux/ARM64). npm will install the correct native binaries for your OS automatically.
+
+### Troubleshooting on Linux / ARM64
+
+**Permission denied on `nodemon`, `vite` or `concurrently`**
+
+This happens when `node_modules` were copied from Windows (NTFS does not preserve Unix execute permissions). Fix:
+
+```bash
+chmod +x node_modules/.bin/*
+chmod +x server/node_modules/.bin/*
+chmod +x client/node_modules/.bin/*
+```
+
+Or do a clean reinstall (preferred):
+
+```bash
+rm -rf node_modules server/node_modules client/node_modules
+npm run install:all
+```
+
+**`CERT_NOT_YET_VALID` during npm install**
+
+The system clock is wrong. npm rejects SSL certificates if the board date is in the past. Fix:
+
+```bash
+# Sync with NTP (requires internet)
+sudo timedatectl set-ntp true
+
+# Or set manually
+sudo date -s "2026-03-02 10:00:00"
+```
+
+Then re-run `npm run install:all`.
+
 ---
 
 ## Configuration
