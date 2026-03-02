@@ -1,4 +1,6 @@
-# Demo POS — Sesami SafePay RC5000 Integration
+# ORCA POS — On-site Recycler Cash Application
+
+> Sesami SafePay RC5000 Integration
 
 A full-featured Point of Sale web application with native integration with the **Sesami SafePay RC5000** cash recycler. Designed for touch screens on **Linux ARM64 i.MX8 boards** (Yocto), and fully compatible with Windows and macOS for development.
 
@@ -187,8 +189,8 @@ demo-pos/
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/your-org/demo-pos.git
-cd demo-pos
+git clone https://github.com/cgvispe/orca-pos.git
+cd orca-pos
 
 # 2. Install all dependencies (root + server + client) in one command
 npm run install:all
