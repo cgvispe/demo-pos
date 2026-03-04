@@ -1,6 +1,6 @@
 # ORCA POS — On-site Recycler Cash Application
 
-> Sesami SafePay RC5000 Integration
+> Sesami SafePay RC5000 Integration · v1.2.0
 
 A full-featured Point of Sale web application with native integration with the **Sesami SafePay RC5000** cash recycler. Designed for touch screens on **Linux ARM64 i.MX8 boards** (Yocto), and fully compatible with Windows and macOS for development.
 
@@ -8,6 +8,7 @@ A full-featured Point of Sale web application with native integration with the *
 
 ## Table of Contents
 
+- [What's New in v1.2.0](#whats-new-in-v120)
 - [Overview](#overview)
 - [Features](#features)
 - [Tech Stack](#tech-stack)
@@ -19,6 +20,9 @@ A full-featured Point of Sale web application with native integration with the *
 - [Running the Application](#running-the-application)
 - [Default Credentials](#default-credentials)
 - [RC5000 Integration](#rc5000-integration)
+- [Refund / Payout Flow](#refund--payout-flow)
+- [Multi-Device Architecture](#multi-device-architecture)
+- [Transaction Reporting](#transaction-reporting)
 - [API Reference](#api-reference)
 - [User Roles](#user-roles)
 - [Manager Panel](#manager-panel)
@@ -28,14 +32,49 @@ A full-featured Point of Sale web application with native integration with the *
 
 ---
 
+## What's New in v1.2.0
+
+### SQLite Database Migration
+The flat-file `db.json` database has been replaced with **SQLite via `better-sqlite3`**. All data is stored in `server/data/orca.db`. Schema migrations run automatically on server start — no manual steps needed when upgrading from v1.0.0.
+
+### Multi-Device RC5000 Support
+The system now supports **multiple RC5000 devices** in a single store. Cashiers select a device at login. Devices are managed from the Manager Panel. Each device maintains its own session independently, preventing one POS terminal from disrupting another's active transaction.
+
+### RC5000 Bearer Token Persistence
+Bearer tokens are **persisted to SQLite** after every successful login. If the server restarts mid-session, the next operation automatically recovers by using the saved token to cancel any stuck operation before retrying login.
+
+### Refund / Payout (RC5000 type 5 — PayoutAmount)
+Authorized users can now process **refunds** from the cashier screen via two workflows:
+- **Cart refund**: add items to the cart, enable the refund toggle — the RC5000 dispenses the amount.
+- **Manual amount**: enter a custom amount with an on-screen numeric keypad (with optional reason).
+
+The refund toggle is only visible to users with the **can_refund** permission. Managers always have this; it is configurable per cashier from the Manager Panel.
+
+### Manual Payment Mode
+Stores without an RC5000 can operate in **manual mode** — the checkout flow skips all device steps and records the transaction directly.
+
+### Device Error Recovery UI
+When the RC5000 is unavailable, the checkout modal offers: **Retry**, **Manual payment/refund**, or **Cancel sale**.
+
+### Force Reset (Manager Panel)
+A **🔄 Reset** button on each device row lets a manager force-clear a stuck session. A bearer token can optionally be provided to also cancel any active operation on the device.
+
+### Transaction Reporting Overhaul
+The Transactions tab has been replaced with a filterable data table, multi-field filters, pagination and Excel export. See [Transaction Reporting](#transaction-reporting).
+
+### Operation Type Constants
+`server/sesami/operationTypes.js` centralises all 22 RC5000 operation type codes as named constants.
+
+---
+
 ## Overview
 
-This application provides two user profiles:
+Two user profiles:
 
-- **Cashier** — Product grid, shopping cart, and full cash checkout via the RC5000
-- **Manager** — Product catalog management, RC5000 connection configuration, user management, theme customization, and transaction history
+- **Cashier** — Product grid, shopping cart, cash checkout via RC5000, refund/payout
+- **Manager** — Product catalog, device management, user management, transaction reporting, theme
 
-The backend is a Node.js/Express API. The frontend is a Vue 3 SPA. In production on the ARM64 board, both are served from a single process. In development, they run separately with Vite's HMR proxy.
+The backend is Node.js/Express. The frontend is a Vue 3 SPA. In production, both are served from a single process on port 3001.
 
 ---
 
@@ -48,20 +87,25 @@ The backend is a Node.js/Express API. The frontend is a Vue 3 SPA. In production
 - Banknote insertion progress bar (amount inserted vs. amount due)
 - Handles all RC5000 operation states: waiting, insufficient change, complete, cancelled, error
 - Change display with cashier prompt after successful payment
-- Live RC5000 device status indicator in the top bar (polls every 30s)
+- **Refund / Payout** with RC5000 dispensing (type 5 — PayoutAmount)
+- **Manual amount entry** via on-screen numeric keypad with optional reason
+- **Manual payment mode** when no RC5000 is available
+- Device error recovery: Retry / Manual / Cancel options
+- Live RC5000 device status indicator (polls every 30s)
 
 ### Manager Panel
 - **Products** — CRUD with image upload, emoji fallback, auto-generated item codes
-- **Categories** — Add/delete product categories used in filters and item classification
-- **Cashiers** — Create, edit and delete cashier accounts
-- **Settings** — Business name, logo, currency, locale, RC5000 connection parameters, theme
-- **Transactions** — Full history of completed cash transactions
+- **Categories** — Add/delete product categories
+- **Users** — Create/edit/delete accounts; set per-user refund permissions
+- **Devices** — Add/configure multiple RC5000 devices; force-reset stuck sessions
+- **Settings** — Business name, logo, currency, locale, theme
+- **Transactions** — Filterable, paginated data table with Excel export
 
 ### System
-- Sesami-inspired dark theme by default (teal `#00c4b3` accent, Sesami logo pre-loaded)
-- Dynamic theming: primary color, font family, logo — all configurable at runtime without reload
+- Sesami-inspired dark theme (teal `#00c4b3` accent)
+- Dynamic theming — all configurable at runtime without reload
 - JWT-based authentication (8h sessions)
-- Flat JSON file database (no external DB required)
+- **SQLite database** with automatic schema migrations
 - Cross-platform: Linux ARM64, Windows, macOS
 
 ---
@@ -77,8 +121,9 @@ The backend is a Node.js/Express API. The frontend is a Vue 3 SPA. In production
 | Backend | Node.js + Express 4 |
 | Authentication | JWT (`jsonwebtoken` + `bcryptjs`) |
 | File uploads | Multer |
-| Database | JSON flat file (custom helper) |
+| Database | SQLite (`better-sqlite3`) |
 | RC5000 comms | Axios + custom HMAC-SHA256 JWT generator |
+| Excel export | SheetJS (loaded client-side on demand) |
 | Dev tooling | Nodemon + Concurrently |
 
 ---
@@ -91,10 +136,11 @@ Browser / Kiosk (Chromium)
         ▼
 ┌─────────────────────────────────┐
 │  Vue 3 SPA  (port 5173 dev)     │
-│  RetailView    — cashier POS    │
-│  ManagerView   — back office    │
-│  CheckoutModal — RC5000 flow    │
-│  RC5000Status  — live polling   │
+│  RetailView      — cashier POS  │
+│  ManagerView     — back office  │
+│  CheckoutModal   — RC5000 flow  │
+│  ManualAmountModal — refund amt │
+│  RC5000Status    — live polling │
 └────────────┬────────────────────┘
              │ HTTP /api/*
              ▼
@@ -107,7 +153,7 @@ Browser / Kiosk (Chromium)
 │  /api/settings     Config       │
 │  /api/sesami       RC5000 proxy │
 └────────────┬────────────────────┘
-             │ HTTPS (local network, self-signed cert accepted)
+             │ HTTPS (local network, self-signed cert)
              ▼
 ┌─────────────────────────────────┐
 │  Sesami SafePay RC5000          │
@@ -116,7 +162,7 @@ Browser / Kiosk (Chromium)
 └─────────────────────────────────┘
 ```
 
-In production, Express serves the Vite build statically — a single process on port 3001.
+In production, Express serves the Vite build statically — single process on port 3001.
 
 ---
 
@@ -129,169 +175,163 @@ demo-pos/
 ├── .gitignore
 ├── README.md
 │
-├── client/                   # Vue 3 + Vite frontend
-│   ├── index.html
+├── client/
 │   ├── vite.config.js        # Dev proxy → :3001
-│   ├── package.json
 │   └── src/
-│       ├── main.js
-│       ├── App.vue            # Global CSS variables + theme bootstrap
-│       ├── api/
-│       │   └── index.js       # Axios instance with JWT interceptor + 401 handler
-│       ├── router/
-│       │   └── index.js       # Route guards (auth + role check)
 │       ├── stores/
-│       │   ├── auth.js        # User session (login, logout, restore)
-│       │   ├── cart.js        # Shopping cart (add, remove, qty, total)
-│       │   └── theme.js       # CSS variable injection + currency formatter
+│       │   ├── auth.js              # User session
+│       │   ├── cart.js              # Cart + refund mode
+│       │   └── theme.js             # CSS variables + currency formatter
 │       ├── components/
-│       │   ├── ProductCard.vue     # Touch-friendly product tile
-│       │   ├── CartPanel.vue       # Right sidebar cart with checkout button
-│       │   ├── CheckoutModal.vue   # 6-phase RC5000 payment modal
-│       │   └── RC5000Status.vue    # Live device status indicator
+│       │   ├── ProductCard.vue
+│       │   ├── CartPanel.vue        # Cart + refund toggle + manual amount
+│       │   ├── CheckoutModal.vue    # Multi-phase RC5000 payment/refund modal
+│       │   ├── ManualAmountModal.vue
+│       │   └── RC5000Status.vue
 │       └── views/
 │           ├── LoginView.vue
-│           ├── RetailView.vue      # Main POS screen
-│           └── ManagerView.vue     # Back-office panel (5 tabs)
+│           ├── RetailView.vue
+│           └── ManagerView.vue      # 6 tabs
 │
-└── server/                   # Node.js + Express backend
-    ├── index.js               # Entry point — mounts routes, serves static in prod
-    ├── db.js                  # JSON database read/write helper
-    ├── package.json
+└── server/
+    ├── index.js               # Entry point
+    ├── database.js            # SQLite schema + migrations
+    ├── db.js                  # Data access helpers
     ├── data/
-    │   └── db.json            # Database: users, items, categories, settings, transactions
-    ├── uploads/               # Product images and logos (excluded from git)
-    │   └── .gitkeep
+    │   └── orca.db            # SQLite DB (auto-created)
+    ├── uploads/               # Product images + logos
     ├── routes/
-    │   ├── auth.js            # Login, logout, /me
-    │   ├── items.js           # Product CRUD + Multer image upload
-    │   ├── categories.js      # Category add/list/delete
-    │   ├── users.js           # Cashier account CRUD
-    │   ├── settings.js        # App config + logo upload
-    │   └── sesami.js          # RC5000 proxy: payin, poll, finish, cancel, logout
+    │   ├── auth.js
+    │   ├── items.js
+    │   ├── categories.js
+    │   ├── users.js           # + canRefund field
+    │   ├── settings.js
+    │   └── sesami.js          # payin, payout, poll, finish, cancel, transactions
     └── sesami/
-        ├── jwt.js             # Custom HMAC-SHA256 JWT generator for RC5000 login
-        └── client.js          # RC5000 HTTP client with session management
+        ├── jwt.js             # HMAC-SHA256 JWT for RC5000
+        ├── client.js          # RC5000 client + token persistence
+        └── operationTypes.js  # 22 operation type constants
 ```
 
 ---
 
 ## Prerequisites
 
-- **Node.js v18 or higher** (tested on v24 LTS)
+- **Node.js v18+** (tested on v24 LTS)
 - npm v8+
-- Network access to the RC5000 device (same LAN or direct Ethernet)
-- For ARM64 deployment: Linux with a Node.js ARM64 build
+- Network access to the RC5000 (same LAN or direct Ethernet)
+- ARM64 deployment: `node-gyp` build tools required for `better-sqlite3`
 
 ---
 
 ## Installation
 
 ```bash
-# 1. Clone the repository
 git clone https://github.com/cgvispe/orca-pos.git
 cd orca-pos
-
-# 2. Install all dependencies (root + server + client) in one command
 npm run install:all
 ```
 
-> ⚠️ `node_modules` are not included in the repository. You must run `npm run install:all` after every fresh clone — on every platform (Windows, macOS, Linux/ARM64). npm will install the correct native binaries for your OS automatically.
+### Upgrading from v1.0.0
+Just replace the files and restart. The server migrates `orca.db` automatically on startup. The old `db.json` is no longer used and can be deleted.
 
-### Troubleshooting on Linux / ARM64
+### SQLite Native Binaries (`better-sqlite3`)
 
-**Permission denied on `nodemon`, `vite` or `concurrently`**
+`better-sqlite3` compiles a native `.node` addon during `npm install`. This is the only package in the project that requires build tools — all other dependencies are pure JavaScript.
 
-This happens when `node_modules` were copied from Windows (NTFS does not preserve Unix execute permissions). Fix:
+#### Linux / ARM64 (i.MX8, Yocto)
+
+The board must have build tools available:
 
 ```bash
-chmod +x node_modules/.bin/*
-chmod +x server/node_modules/.bin/*
-chmod +x client/node_modules/.bin/*
+# Yocto: ensure these are in your image or installed
+python3 make gcc g++
 ```
 
-Or do a clean reinstall (preferred):
+If the board does not have build tools, **pre-build on a matching ARM64 machine** and rsync the entire `server/node_modules` to the board. Do not copy `node_modules` from an x86 machine — the native binaries are architecture-specific and will crash with `invalid ELF header`.
 
 ```bash
-rm -rf node_modules server/node_modules client/node_modules
-npm run install:all
+# Build on ARM64 dev machine, then copy
+rsync -av server/node_modules user@<board-ip>:/opt/demo-pos/server/
 ```
 
-**`CERT_NOT_YET_VALID` during npm install**
+#### Windows
 
-The system clock is wrong. npm rejects SSL certificates if the board date is in the past. Fix:
+Requires **Visual Studio Build Tools** (C++ workload). The easiest way:
 
 ```bash
-# Sync with NTP (requires internet)
+# Run once as administrator
+npm install --global --production windows-build-tools
+```
+
+Or install [Visual Studio Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/) manually and select the "Desktop development with C++" workload.
+
+#### macOS
+
+Xcode Command Line Tools are sufficient:
+
+```bash
+xcode-select --install
+```
+
+#### Verifying the installation
+
+If `better-sqlite3` fails to load, the server will crash immediately on startup with an error like:
+
+```
+Error: Cannot find module '.../better_sqlite3.node'
+# or
+Error: The module was compiled against a different Node.js version
+```
+
+In either case, rebuild the native module:
+
+```bash
+cd server
+npm rebuild better-sqlite3
+```
+
+### Troubleshooting (Linux / ARM64)
+
+```bash
+# Permission denied on binaries
+chmod +x node_modules/.bin/* server/node_modules/.bin/* client/node_modules/.bin/*
+
+# CERT_NOT_YET_VALID — fix system clock
 sudo timedatectl set-ntp true
-
-# Or set manually
-sudo date -s "2026-03-02 10:00:00"
 ```
-
-Then re-run `npm run install:all`.
 
 ---
 
 ## Configuration
 
-Configure the RC5000 connection before running. Two options:
-
-### Option A — Edit `db.json` directly (before first run)
-
-Open `server/data/db.json` and update the `settings.sesami` block:
-
-```json
-"sesami": {
-  "ip": "192.168.1.100",
-  "port": "4443",
-  "useHttps": true,
-  "posId": "POS1",
-  "username": "DEMPOS",
-  "secretKey": "your-256-bit-secret-key"
-}
-```
+RC5000 devices are configured from **Manager Panel → Devices → Add Device**:
 
 | Field | Description |
 |---|---|
-| `ip` | IP address of the RC5000 on your local network |
-| `port` | `4443` for HTTPS (default), `3000` for HTTP |
-| `useHttps` | `true` by default — RC5000 uses a self-signed cert, which is accepted automatically |
-| `posId` | POS identifier registered with Sesami |
-| `username` | Username registered with Sesami for this POS |
-| `secretKey` | 256-bit HMAC secret provided by Sesami |
-
-### Option B — Manager Panel (after first run)
-
-Log in as `admin` → **Manager Panel → Settings → RC5000 Connection** → fill in the fields → **Test Connection** to verify with the current form values (without saving) → **Save Changes**.
-
-> **Note:** Test Connection uses the values currently entered in the form, not the previously saved settings. This allows you to verify new credentials before committing them.
+| Name | Display name (e.g. "Caja 1") |
+| IP | Device IP on the local network |
+| Port | `4443` (HTTPS default) |
+| POS ID | Identifier registered with Sesami |
+| Username | Sesami username for this POS |
+| Secret Key | 256-bit HMAC secret from Sesami |
+| HTTPS | `true` by default |
+| Default | Pre-selected at cashier login |
 
 ---
 
 ## Running the Application
 
-### Development (Windows / macOS / Linux)
-
 ```bash
+# Development
 npm run dev
-```
+# Frontend: http://localhost:5173  Backend: http://localhost:3001/api
 
-Starts server and client concurrently:
-- Frontend (Vite HMR): http://localhost:5173
-- Backend API: http://localhost:3001/api
-
-### Production (i.MX8 ARM64 board)
-
-```bash
-# Build the Vue frontend (run on a dev machine or on the board)
+# Production
 npm run build
-
-# Start — serves the built frontend + API on port 3001
 NODE_ENV=production node server/index.js
+# http://<host>:3001
 ```
-
-Access at `http://<board-ip>:3001`
 
 ---
 
@@ -302,134 +342,151 @@ Access at `http://<board-ip>:3001`
 | `admin` | `password` | Manager |
 | `cashier` | `password` | Cashier |
 
-> ⚠️ Change these passwords before any production or on-site deployment. Passwords are bcrypt-hashed in `db.json`.
+> ⚠️ Change these before any production deployment.
 
 ---
 
 ## RC5000 Integration
 
 ### HTTPS and Self-Signed Certificate
-
-The RC5000 communicates over **HTTPS on port 4443** using a self-signed certificate. The Node.js HTTP client is configured with `rejectUnauthorized: false` to accept it without requiring manual certificate installation. The browser does not connect to the device directly — all communication goes through the Express backend proxy.
+The RC5000 uses HTTPS on port 4443 with a self-signed cert. The Node.js client uses `rejectUnauthorized: false`. The browser never connects to the device directly.
 
 ### JWT Authentication
+- **Base64url** encoded header + payload
+- **HMAC-SHA256** signature using the Sesami secret
+- Expiration must be ≥5 min in the future (app uses +10 min)
+- Login returns a bearer token used for all subsequent calls
+- **One session per device** — logout is always called after every terminal operation
 
-The RC5000 POS API v3 uses a **non-standard JWT** for login:
+### Bearer Token Persistence
+Token is saved to SQLite after every successful login. On server restart, if login returns "Operación ya iniciada", the server uses the persisted token to cancel + logout before retrying.
 
-- Header and payload encoded with **base64url** (not standard base64)
-- Signed with **HMAC-SHA256** using the Sesami-provided secret key
-- Payload must include `{ username, pos, expiration }` where `expiration` is a Unix timestamp **at least 5 minutes in the future** (device enforces a 5-min margin). This app uses +10 minutes.
-- `POST /login` returns a **bearer token** used for all subsequent requests
-- ⚠️ The device allows **only one active session at a time**. Logout is **always** performed after every operation — success, cancel, or error — to free the device for the next transaction.
-
-### Payment Flow (PayIn Amount — operation type 10)
+### PayIn Flow (type 10)
 
 ```
-Cashier clicks Pay
-      │
-      ▼
-POST /api/sesami/payin  { amount }
-      │  server logs into RC5000, starts operation type 10
-      ▼
-GET /api/sesami/operation/:id  (every 1.5 seconds)
-      │  polls device status, extracts totalIN from currencies array
-      ▼
-  ┌───────────────────────────────────────────────────────┐
-  │  status 1/2  → keep polling                           │
-  │  status 4/5  → SUCCESS  → finish → LOGOUT → save tx   │
-  │  status 8    → SUCCESS  → finish → LOGOUT → save tx   │
-  │  status 7    → NO CHANGE → cashier: Finish or Cancel  │
-  │  status 3/9  → CANCELLED by machine → LOGOUT          │
-  │  status 6    → ERROR → LOGOUT                         │
-  └───────────────────────────────────────────────────────┘
-
-  Cashier presses Cancel at any time:
-      → POST /operation/cancel (best-effort) → LOGOUT
+POST /api/sesami/payin { deviceId, amount }
+  → login → start op type 10
+  → poll GET /api/sesami/operation/:id every 1.5s
+      status 1/2 → keep polling
+      status 4/5/8 → finish → logout → save tx
+      status 7 → offer Finish or Cancel to cashier
+      status 3/9/6 → logout
 ```
-
-**Logout guarantee:** Every terminal path — success, cashier cancel, machine cancel, or error — calls `POST /api/sesami/logout`. This endpoint is separate from the operation cancel call so that logout succeeds even if the operation is already in a terminal state on the device.
-
-**Amounts:** All amounts in the RC5000 API are in **cents (integer)**. €20.00 = `2000`.
 
 ### Operation Status Codes
 
-| Code | Meaning | App behaviour |
+| Code | Meaning | Intermediate |
 |---|---|---|
-| `1` | Started | Keep polling |
-| `2` | Processing | Keep polling |
-| `3` | Cancelled by machine | Logout, show cancelled |
-| `4` | Finished | Finish, logout, save transaction |
-| `5` | Finished by system | Finish, logout, save transaction |
-| `6` | Error | Logout, show error |
-| `7` | Amount not available (insufficient change) | Cashier chooses: Finish or Cancel |
-| `8` | Finished incomplete | Finish, logout, save transaction |
-| `9` | Cancelled incomplete | Logout, show cancelled |
+| 1 | Started | ✓ |
+| 2 | Processing | ✓ |
+| 3 | Cancelled | — |
+| 4 | Finished | — |
+| 5 | Finished by system | — |
+| 6 | Finished with error | — |
+| 7 | Amount not available | ✓ |
+| 8 | Finished incomplete | — |
+| 9 | Cancelled incomplete | — |
 
-### Device Status Codes (live indicator)
+### Operation Type Constants (`operationTypes.js`)
 
-| Code | Meaning | Indicator colour |
-|---|---|---|
-| `1`, `2` | Ready / Initialized | 🟢 Green (pulsing) |
-| `4`, `5`, `11` | Session active / In use | 🟠 Orange (pulsing) |
-| `12` | Warning | 🟠 Orange (pulsing) |
-| `0`, `13` | Error | 🔴 Red (pulsing) |
-| — | Unreachable / not configured | ⚫ Grey |
+```js
+PayoutAmount: 5,  PayinAmount: 10,  Collection: 17,  Empty: 15,
+// ... and 18 more — see server/sesami/operationTypes.js
+```
+
+---
+
+## Refund / Payout Flow
+
+Operation type **5 (PayoutAmount)** — RC5000 dispenses cash.
+
+### Permissions
+Refund toggle visible only when `canRefund === true`. Managers always have it. Configurable per cashier in Manager Panel → Users.
+
+### Workflow 1 — Cart Refund
+1. Add items to cart → enable ↩ Refund toggle
+2. Checkout button shows "↩️ Dispense"
+3. `POST /api/sesami/payout` → type 5 operation
+4. Modal shows amber "Dispensing cash…" with totalOut progress bar
+5. `POST /api/sesami/operation/finish-refund` → save tx → logout → clear cart
+
+### Workflow 2 — Manual Amount
+1. Click **+ Add manual amount** → numeric keypad → optional reason
+2. Enable refund toggle → proceed as above
+
+### Manual Refund (no device)
+Device-error screen offers **Manual refund** → saves tx with `isManual: true`, `rcStatus: null`.
+
+---
+
+## Multi-Device Architecture
+
+- One server + one SQLite DB per store, multiple RC5000 devices
+- Cashiers select device at login (or default is pre-selected)
+- Sessions tracked per-device in memory + SQLite
+- Server only logs out sessions it owns — never interrupts another terminal's active transaction
+- **Force Reset**: Manager Panel → Devices → 🔄 Reset clears stuck sessions
+
+---
+
+## Transaction Reporting
+
+### Columns
+
+| Column | Description |
+|---|---|
+| Date | Timestamp |
+| ID | Short UUID |
+| User | Who processed the transaction |
+| Device | RC5000 name or "Manual" |
+| Operation | e.g. "Payin Amount", "Payout Amount" |
+| Source | 🏧 RC5000 / 💵 Manual |
+| RC Status | Finished / Cancelled / Error / Incomplete |
+| Total In | Cash inserted (€) |
+| Total Out | Cash dispensed (€) |
+| Total | Net (positive = sale, negative = refund) |
+
+### Filters (combinable)
+- **Date** — calendar picker with month navigation
+- **Operation** — multi-select
+- **Source** — All / RC5000 / Manual
+- **RC Status** — multi-select
+- **User** — multi-select (all roles)
+
+### Pagination & Export
+Up to 100 rows per page. **⬇ Export Excel** downloads all filtered rows as `.xlsx` via SheetJS.
 
 ---
 
 ## API Reference
 
-All endpoints are prefixed with `/api`. Endpoints marked ✓ require `Authorization: Bearer <token>`. Endpoints marked 👔 additionally require the `manager` role.
+`/api` prefix. ✓ = JWT required. 👔 = manager role required.
 
 ### Auth
-| Method | Endpoint | Auth | Description |
-|---|---|---|---|
-| POST | `/auth/login` | — | Login, returns JWT |
-| GET | `/auth/me` | ✓ | Current user info |
+| POST | `/auth/login` | — | Returns JWT + user |
+| GET | `/auth/me` | ✓ | Current user |
 
-### Items
-| Method | Endpoint | Auth | Description |
-|---|---|---|---|
-| GET | `/items` | — | Active items only |
-| GET | `/items/all` | 👔 | All items including inactive |
-| POST | `/items` | 👔 | Create item (`multipart/form-data`) |
-| PUT | `/items/:id` | 👔 | Update item |
-| DELETE | `/items/:id` | 👔 | Soft-delete (sets `active=false`) |
-
-### Categories
-| Method | Endpoint | Auth | Description |
-|---|---|---|---|
-| GET | `/categories` | — | All categories |
-| POST | `/categories` | 👔 | Add a category |
-| DELETE | `/categories/:name` | 👔 | Remove a category |
-
-### Users
-| Method | Endpoint | Auth | Description |
-|---|---|---|---|
-| GET | `/users` | 👔 | All cashier accounts |
-| POST | `/users` | 👔 | Create cashier |
-| PUT | `/users/:id` | 👔 | Update name / username / password |
-| DELETE | `/users/:id` | 👔 | Delete cashier (managers are protected) |
-
-### Settings
-| Method | Endpoint | Auth | Description |
-|---|---|---|---|
-| GET | `/settings` | — | Public settings (secret key omitted) |
-| PUT | `/settings` | 👔 | Update settings (`multipart/form-data`, optional logo) |
-| GET | `/settings/sesami-full` | 👔 | Settings including RC5000 secret key |
+### Items · Categories · Users · Settings
+Standard CRUD — see previous section for full table.
 
 ### RC5000
 | Method | Endpoint | Auth | Description |
 |---|---|---|---|
-| GET | `/sesami/heartbeat` | — | Ping device — no login required |
-| GET | `/sesami/status` | — | Full device status — no login required |
-| POST | `/sesami/test-connection` | — | Test connectivity using form values `{ ip, port, useHttps }` without saving |
-| POST | `/sesami/payin` | ✓ | Login to device + start PayIn Amount operation |
-| GET | `/sesami/operation/:id` | ✓ | Poll operation status |
-| POST | `/sesami/operation/finish` | ✓ | Finish operation, save transaction, logout |
-| POST | `/sesami/operation/cancel` | ✓ | Cancel operation (best-effort) |
-| POST | `/sesami/logout` | ✓ | Force logout — always called after any terminal state |
-| GET | `/sesami/transactions` | ✓ | Transaction history (newest first) |
+| GET | `/sesami/heartbeat` | — | Ping |
+| GET | `/sesami/status/:deviceId` | — | Device status |
+| POST | `/sesami/payin` | ✓ | Start PayinAmount (type 10) |
+| POST | `/sesami/payout` | ✓ | Start PayoutAmount (type 5) |
+| GET | `/sesami/operation/:id` | ✓ | Poll status |
+| POST | `/sesami/operation/finish` | ✓ | Finish payin, save tx |
+| POST | `/sesami/operation/finish-refund` | ✓ | Finish payout, save tx |
+| POST | `/sesami/operation/finish-manual` | ✓ | Record manual tx |
+| POST | `/sesami/operation/cancel` | ✓ | Cancel operation |
+| POST | `/sesami/logout` | ✓ | Force logout |
+| POST | `/sesami/force-reset/:deviceId` | 👔 | Clear stuck session |
+| GET | `/sesami/transactions` | ✓ | History (filterable, paginated) |
+
+#### `/sesami/transactions` query params
+`date`, `operationType` (CSV ints), `status` (CSV), `rcStatus` (CSV ints), `cashierId` (CSV), `isManual` (bool), `page`, `limit` (max 100)
 
 ---
 
@@ -439,100 +496,65 @@ All endpoints are prefixed with `/api`. Endpoints marked ✓ require `Authorizat
 |---|---|---|
 | View products & cart | ✓ | ✓ |
 | Process cash payment | ✓ | ✓ |
-| Manage products | — | ✓ |
-| Manage categories | — | ✓ |
-| Manage cashier accounts | — | ✓ |
-| Configure RC5000 | — | ✓ |
-| Customize theme & logo | — | ✓ |
-| View transaction history | — | ✓ |
+| Process refund / payout | if `canRefund` | ✓ |
+| Select RC5000 device at login | ✓ | ✓ |
+| Manage products & categories | — | ✓ |
+| Manage users (+ refund permissions) | — | ✓ |
+| Configure / reset RC5000 devices | — | ✓ |
+| View & export transactions | — | ✓ |
 
 ---
 
 ## Manager Panel
 
-### Products tab
-- Create, edit, disable/enable products
-- Upload a product image (PNG, JPG, WebP); displayed with `object-fit: cover`
-- Emoji fallback when no image is uploaded
-- **Auto-generated item codes**: format `CAT001` (first 3 letters of category + sequential counter)
-- Code regenerates automatically when the category is changed (reclassification), excluding the item itself from the counter to avoid inflation
-- Codes remain manually editable at any time
-
-### Categories tab
-- Add and delete categories independently of items
-- Deleting a category does not affect its items — they retain the category name
-
-### Cashiers tab
-- Create cashier accounts (name, username, password)
-- Edit display name and password; username is immutable after creation
-- Manager accounts are protected and cannot be modified here
-
-### Settings tab
-- **Business**: name, logo (displayed at 80×80px), currency code, currency symbol, locale
-- **RC5000**: IP, port (default `4443`), POS ID, username, secret key, HTTPS toggle (default `true`), plus **Test Connection** — tests the current form values without requiring a save first
-- **Theme**: dark/light mode, primary color (hex picker), font family (Inter, Poppins, Roboto)
+| Tab | Description |
+|---|---|
+| Products | CRUD, image upload, auto item codes |
+| Categories | Add/delete |
+| Users | CRUD + canRefund permission per user |
+| Devices | Multi-device config + 🔄 Force Reset |
+| Settings | Business info, logo, currency, theme |
+| Transactions | Filterable table + Excel export |
 
 ---
 
 ## Theme System
 
-The theme is applied entirely via **CSS custom properties** injected by the Pinia theme store. The UI repaints instantly when settings change — no page reload needed.
-
-Default palette (Sesami-inspired dark):
+CSS custom properties injected by the Pinia theme store. Instant repaint — no reload.
 
 ```
---color-bg:        #090b0f    near-black background
---color-surface:   #0f1117    card and panel surfaces
---color-surface-2: #15181f    inputs and secondary backgrounds
---color-border:    #1e2330    very subtle borders
---color-primary:   #00c4b3    Sesami teal accent
+--color-bg:        #090b0f
+--color-surface:   #0f1117
+--color-primary:   #00c4b3    (Sesami teal)
 ```
 
-The Sesami logo is embedded as a default and appears in the top bar and login screen out of the box, without any configuration. It can be replaced via Manager Panel → Settings → Store Logo.
-
-A soft teal radial glow is applied in the bottom-right corner of the screen, matching the Sesami web app aesthetic. The login screen adds a second glow in the top-left.
+Sesami logo embedded as default. Replaceable from Settings → Store Logo.
 
 ---
 
 ## Deployment on i.MX8 / Yocto Linux
 
-Tested on NXP i.MX8 ARM64 running Yocto Linux (Scarthgap).
-
 ```bash
-# 1. Build the frontend on a development machine
+# On dev machine
 npm run build
-
-# 2. Copy project to the board (skip node_modules and build artifacts)
-rsync -av \
-  --exclude='node_modules' \
-  --exclude='client/dist' \
-  --exclude='client/.vite' \
+rsync -av --exclude='node_modules' --exclude='client/dist' --exclude='server/data' \
   . user@<board-ip>:/opt/demo-pos
 
-# 3. On the board — install production server dependencies only
+# On the board
 cd /opt/demo-pos
 npm install --prefix server --omit=dev
-
-# 4. Copy the client build to the board separately
 scp -r client/dist user@<board-ip>:/opt/demo-pos/client/dist
-
-# 5. Start the server
 NODE_ENV=production node server/index.js
 
-# 6. Launch Chromium in kiosk mode
-chromium-browser --kiosk \
-  --noerrdialogs \
-  --disable-infobars \
-  --disable-session-crashed-bubble \
-  http://localhost:3001
+# Kiosk
+chromium-browser --kiosk --noerrdialogs --disable-infobars http://localhost:3001
 ```
 
-For autostart on boot, create a systemd service:
+### systemd
 
 ```ini
-# /etc/systemd/system/demo-pos.service
 [Unit]
-Description=Demo POS Server
+Description=ORCA POS Server
 After=network.target
 
 [Service]
@@ -546,17 +568,11 @@ RestartSec=5
 WantedBy=multi-user.target
 ```
 
-```bash
-systemctl enable demo-pos
-systemctl start demo-pos
-```
-
 ---
 
 ## Known Limitations
 
-- **Single RC5000 session**: One active device session at a time. Concurrent checkouts from multiple browsers are not supported.
-- **Flat file database**: `db.json` is suitable for demo and low-volume use. For higher volume, consider migrating to SQLite.
-- **No HTTPS on the POS server**: Acceptable for kiosk use on a local network. For remote access, place nginx in front.
-- **Manager accounts**: Only `admin` is provided by default. Additional manager accounts must be added manually to `db.json` (bcrypt-hash the password first).
-- **Image storage**: Uploaded files are stored in `server/uploads/` on the local filesystem and are excluded from git. Back up this folder separately.
+- **One active operation per device at a time** — concurrent checkouts on the same device must queue
+- **No HTTPS on the POS server** — use nginx for remote access
+- **Image storage** — `server/uploads/` is local filesystem, excluded from git; back up separately
+- **Token persistence** — per-device, per-server-instance; multi-server setups need a shared token store
