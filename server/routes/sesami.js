@@ -264,6 +264,103 @@ router.post('/operation/finish-manual', authMiddleware, async (req, res) => {
   res.json({ ok: true, transaction: tx })
 })
 
+// POST /api/sesami/backoffice/start — start a backoffice operation (manager only)
+router.post('/backoffice/start', authMiddleware, async (req, res) => {
+  if (req.user.role !== 'manager') return res.status(403).json({ error: 'Managers only' });
+  const { deviceId, type, denominations } = req.body;
+  if (!deviceId) return res.status(400).json({ error: 'deviceId required' });
+  if (!type)     return res.status(400).json({ error: 'type required' });
+  try {
+    const result = await sesami.startBackofficeOperation(deviceId, type, denominations || null);
+    res.json({ ok: true, operationId: result.operationId, result });
+  } catch (err) {
+    console.error('[RC5000 backoffice start]', err.message);
+    try { await sesami.logout(deviceId); } catch {}
+    res.status(503).json({ error: 'RC5000 error', detail: err.message });
+  }
+});
+
+// POST /api/sesami/backoffice/finish — finish a backoffice operation (Load), save tx if needed
+router.post('/backoffice/finish', authMiddleware, async (req, res) => {
+  if (req.user.role !== 'manager') return res.status(403).json({ error: 'Managers only' });
+  const { deviceId, operationId, type, saveTx, denominations, totalIn: pollTotalIn, totalOut: pollTotalOut, rcStatus: pollRcStatus } = req.body;
+  if (!deviceId) return res.status(400).json({ error: 'deviceId required' });
+
+  const device = db.getDeviceById(deviceId);
+  const deviceName = device?.name || deviceId;
+
+  let finishResult = null;
+  let finishError  = null;
+
+  // Step 1: Finish the operation
+  try {
+    console.log(`[RC5000:${deviceName}] backoffice finish → POST /operations/finish`);
+    finishResult = await sesami.finishOperation(deviceId);
+    console.log(`[RC5000:${deviceName}] backoffice finish OK — full response:`, JSON.stringify(finishResult));
+  } catch (err) {
+    finishError = err.message;
+    console.error(`[RC5000:${deviceName}] backoffice finish error:`, err.message);
+  }
+
+  // Step 2: Always logout, regardless of finish result
+  try {
+    console.log(`[RC5000:${deviceName}] backoffice logout →`);
+    await sesami.logout(deviceId);
+    console.log(`[RC5000:${deviceName}] backoffice logout OK`);
+  } catch (err) {
+    // sesami.logout swallows its own errors, this catch is a safety net
+    console.error(`[RC5000:${deviceName}] backoffice logout outer error:`, err.message);
+    // Force clear session both ways
+    sesami.sessions.delete(deviceId);
+    db.clearDeviceSession(deviceId);
+  }
+
+  // If finish failed with no prior error, report it
+  if (finishError && !finishResult) {
+    // Still respond OK so frontend shows success (session is clean)
+    console.warn(`[RC5000:${deviceName}] finish failed but session cleaned — continuing`);
+  }
+
+  // Step 3: Save transaction if needed
+  if (saveTx) {
+    try {
+      const settings = db.getSettings();
+      // Totals come from the last poll (finish response has no totals)
+      const totalIn  = pollTotalIn  || 0;
+      const totalOut = pollTotalOut || 0;
+      // If the last polled status was intermediate (1=Started, 2=Processing),
+      // the manager triggered finish manually — treat as Finished (4)
+      const intermediateStatuses = [1, 2];
+      const finalRcStatus = intermediateStatuses.includes(pollRcStatus) ? 4 : (pollRcStatus || 4);
+      const tx = {
+        id:            uuidv4(),
+        date:          new Date().toISOString(),
+        cashierId:     req.user.id,
+        cashierName:   req.user.name,
+        deviceId,
+        deviceName,
+        total:         totalIn - totalOut,
+        amountReceived: totalIn,
+        change:        totalOut,
+        totalIn,
+        totalOut,
+        currency:      settings.currency || 'EUR',
+        status:        'completed',
+        operationType: type,
+        isManual:      false,
+        rcStatus:      finalRcStatus,
+        items:         denominations ? JSON.parse(JSON.stringify(denominations)) : []
+      };
+      db.saveTransaction(tx);
+      return res.json({ ok: true, finishResult, transaction: tx });
+    } catch (txErr) {
+      console.error(`[RC5000:${deviceName}] tx save error:`, txErr.message);
+    }
+  }
+
+  res.json({ ok: true, finishResult });
+});
+
 // GET /api/sesami/content/:deviceId — cash levels (login → /content/current → logout)
 router.get('/content/:deviceId', authMiddleware, async (req, res) => {
   const { deviceId } = req.params;

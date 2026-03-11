@@ -140,12 +140,11 @@ function getSettings() {
     currencySymbol: flat.currencySymbol || '€',
     locale:         flat.locale         || 'es-ES',
     theme: {
-      mode:         flat.themeMode    || 'dark',
-      primary:      flat.themePrimary || '#00c4b3',
-      primaryColor: flat.themePrimary || '#00c4b3',
-      font:         flat.themeFont    || 'Inter',
-      fontFamily:   flat.themeFont    || 'Inter',
-      logoUrl:      flat.logoUrl      || ''
+      mode:         flat.themeMode       || 'dark',
+      primaryColor: flat.themePrimary    || '#5CE5DB',
+      fontFamily:   flat.themeFont       || 'Neue Haas Unica',
+      fontSize:     flat.themeFontSize   || 'normal',
+      logoUrl:      flat.logoUrl         || ''
     }
   };
 }
@@ -158,10 +157,11 @@ function saveSettings(settings) {
     if (settings.currencySymbol !== undefined) upsert.run('currencySymbol', settings.currencySymbol);
     if (settings.locale         !== undefined) upsert.run('locale',         settings.locale);
     if (settings.theme) {
-      if (settings.theme.mode    !== undefined) upsert.run('themeMode',    settings.theme.mode);
-      if (settings.theme.primary !== undefined) upsert.run('themePrimary', settings.theme.primary);
-      if (settings.theme.font    !== undefined) upsert.run('themeFont',    settings.theme.font);
-      if (settings.theme.logoUrl !== undefined) upsert.run('logoUrl',      settings.theme.logoUrl);
+      if (settings.theme.mode         !== undefined) upsert.run('themeMode',     settings.theme.mode);
+      if (settings.theme.primaryColor !== undefined) upsert.run('themePrimary',  settings.theme.primaryColor);
+      if (settings.theme.fontFamily   !== undefined) upsert.run('themeFont',     settings.theme.fontFamily);
+      if (settings.theme.fontSize     !== undefined) upsert.run('themeFontSize', settings.theme.fontSize);
+      if (settings.theme.logoUrl      !== undefined) upsert.run('logoUrl',       settings.theme.logoUrl);
     }
   });
   tx();

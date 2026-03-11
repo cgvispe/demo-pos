@@ -142,7 +142,7 @@ function confirmDevice() {
   align-items: center;
   justify-content: center;
   background: var(--color-bg);
-  padding: 24px;
+  padding: 16px;
   position: relative;
   overflow: hidden;
 }
@@ -150,49 +150,52 @@ function confirmDevice() {
   content: '';
   position: absolute;
   bottom: -80px; right: -80px;
-  width: 500px; height: 500px;
-  background: radial-gradient(circle, rgba(0,196,179,0.1) 0%, transparent 65%);
+  width: 420px; height: 420px;
+  background: radial-gradient(circle, rgba(92,229,219,0.09) 0%, transparent 65%);
   pointer-events: none;
 }
 .login-page::after {
   content: '';
   position: absolute;
   top: -100px; left: -100px;
-  width: 400px; height: 400px;
-  background: radial-gradient(circle, rgba(0,196,179,0.05) 0%, transparent 65%);
+  width: 360px; height: 360px;
+  background: radial-gradient(circle, rgba(166,166,255,0.05) 0%, transparent 65%);
   pointer-events: none;
 }
 .login-card {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-xl);
-  padding: 48px 40px;
-  width: 100%; max-width: 440px;
+  padding: 36px 32px;
+  width: 100%; max-width: 420px;
   box-shadow: var(--shadow-lg);
 }
-.brand { text-align: center; margin-bottom: 40px; }
+@media (max-height: 520px) {
+  .login-card { padding: 24px 28px; border-radius: var(--radius-lg); }
+}
+.brand { text-align: center; margin-bottom: 28px; }
 .brand-icon {
-  width: 80px; height: 80px;
+  width: 72px; height: 72px;
   background: var(--color-primary-alpha);
   border: 2px solid var(--color-primary);
   border-radius: var(--radius-lg);
   display: flex; align-items: center; justify-content: center;
-  margin: 0 auto 16px; overflow: hidden;
+  margin: 0 auto 14px; overflow: hidden;
 }
 .brand-icon img { width: 100%; height: 100%; object-fit: cover; }
 .brand-emoji { font-size: 40px; line-height: 1; }
-.brand-name { font-size: 24px; font-weight: 700; color: var(--color-text); }
-.brand-sub { font-size: 14px; color: var(--color-text-2); margin-top: 4px; }
+.brand-name { font-size: 1.6rem; font-weight: 700; color: var(--color-text); }
+.brand-sub { font-size: 0.93rem; color: var(--color-text-2); margin-top: 4px; }
 .login-form { display: flex; flex-direction: column; gap: 20px; }
 .field { display: flex; flex-direction: column; gap: 8px; }
-.field label { font-size: 14px; font-weight: 500; color: var(--color-text-2); }
+.field label { font-size: 0.93rem; font-weight: 500; color: var(--color-text-2); }
 .field input {
   background: var(--color-surface-2);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   color: var(--color-text);
   font-family: var(--font-family);
-  font-size: 16px;
+  font-size: 1.07rem;
   padding: 14px 16px;
   outline: none;
   transition: border-color 0.2s, box-shadow 0.2s;
@@ -204,7 +207,7 @@ function confirmDevice() {
   border: 1px solid var(--color-danger);
   border-radius: var(--radius-sm);
   color: var(--color-danger);
-  font-size: 14px;
+  font-size: 0.93rem;
   padding: 12px 16px;
   display: flex; align-items: center; gap: 8px;
 }
@@ -212,7 +215,7 @@ function confirmDevice() {
   background: var(--color-primary); border: none;
   border-radius: var(--radius-sm);
   color: white; font-family: var(--font-family);
-  font-size: 16px; font-weight: 600;
+  font-size: 1.07rem; font-weight: 600;
   padding: 16px; cursor: pointer;
   transition: opacity 0.2s, transform 0.1s;
   display: flex; align-items: center; justify-content: center;
@@ -231,8 +234,8 @@ function confirmDevice() {
 @keyframes spin { to { transform: rotate(360deg); } }
 /* Device selector */
 .device-step { display: flex; flex-direction: column; gap: 12px; }
-.device-intro { font-size: 14px; color: var(--color-text-2); margin-bottom: 4px; }
-.device-loading { color: var(--color-text-3); font-size: 14px; padding: 12px 0; }
+.device-intro { font-size: 0.93rem; color: var(--color-text-2); margin-bottom: 4px; }
+.device-loading { color: var(--color-text-3); font-size: 0.93rem; padding: 12px 0; }
 .device-list { display: flex; flex-direction: column; gap: 10px; }
 .device-btn {
   display: flex; align-items: center; gap: 12px;
@@ -245,23 +248,23 @@ function confirmDevice() {
 }
 .device-btn:hover { border-color: var(--color-primary); background: var(--color-surface-3); }
 .device-btn.selected { border-color: var(--color-primary); background: var(--color-primary-alpha); }
-.device-icon { font-size: 24px; }
+.device-icon { font-size: 1.6rem; }
 .device-info { display: flex; flex-direction: column; flex: 1; }
-.device-name { font-size: 15px; font-weight: 600; }
-.device-ip { font-size: 12px; color: var(--color-text-3); font-family: monospace; margin-top: 2px; }
+.device-name { font-size: 1rem; font-weight: 600; }
+.device-ip { font-size: 0.8rem; color: var(--color-text-3); font-family: monospace; margin-top: 2px; }
 .device-badge {
-  font-size: 11px; background: var(--color-primary-alpha);
+  font-size: 0.73rem; background: var(--color-primary-alpha);
   color: var(--color-primary); padding: 2px 8px;
   border-radius: 999px; border: 1px solid var(--color-primary);
 }
-.device-check { color: var(--color-primary); font-size: 18px; font-weight: 700; }
+.device-check { color: var(--color-primary); font-size: 1.2rem; font-weight: 700; }
 .btn-back {
   background: none; border: none;
-  color: var(--color-text-3); font-size: 14px;
+  color: var(--color-text-3); font-size: 0.93rem;
   cursor: pointer; padding: 8px 0;
   transition: color 0.2s; text-align: center;
 }
 .btn-back:hover { color: var(--color-text); }
 .mt-12 { margin-top: 12px; }
-.demo-hint { text-align: center; font-size: 12px; color: var(--color-text-3); margin-top: 24px; }
+.demo-hint { text-align: center; font-size: 0.8rem; color: var(--color-text-3); margin-top: 24px; }
 </style>

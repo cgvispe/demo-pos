@@ -47,10 +47,21 @@ async function login(deviceId, retryAfterRecovery = false) {
   const client = getClient(baseURL);
   const response = await client.post('/login', { token: loginToken });
 
-  if (response.status === 400) {
-    const msg = response.data?.error?.message || '';
-    if (!retryAfterRecovery && (msg.includes('ya iniciada') || msg.includes('already') || msg.includes('active'))) {
-      console.warn(`[RC5000:${device.name}] stale session detected — attempting recovery`);
+  if (response.status === 400 || response.status === 500) {
+    // RC5000 wraps errors as { error: { message, code } } or flat { message }
+    const msg = response.data?.error?.message || response.data?.message || '';
+    const code = response.data?.error?.code || response.data?.code || 0;
+    // Code 636 = active session. Also catch english/signature variants.
+    const isActiveSession = code === 636
+      || msg.includes('ya iniciada')
+      || msg.includes('usuario en sesión')
+      || msg.includes('already')
+      || msg.includes('active')
+      || msg.includes('Signature')
+      || msg.includes('signature');
+
+    if (!retryAfterRecovery && isActiveSession) {
+      console.warn(`[RC5000:${device.name}] stale session detected (code=${code}) — attempting recovery`);
 
       // Try with persisted bearer token first (survives server restarts)
       const persistedToken = db.getDeviceSession(deviceId);
@@ -105,19 +116,35 @@ async function login(deviceId, retryAfterRecovery = false) {
 
 async function logout(deviceId) {
   const token = getToken(deviceId);
-  if (!token) return;
+
+  // Always clear in-memory session immediately
+  sessions.delete(deviceId);
+
+  if (!token) {
+    console.warn(`[RC5000] logout called but no token for device ${deviceId}`);
+    return;
+  }
 
   try {
     const device = db.getDeviceById(deviceId);
     if (device) {
+      console.log(`[RC5000:${device.name}] logout → POST /logout`);
       const client = getClient(getBaseUrl(device), token);
-      await client.post('/logout');
+      const res = await client.post('/logout');
+      console.log(`[RC5000:${device.name}] logout response: HTTP ${res.status}`);
+      if (res.status === 200) {
+        // Clean logout — safe to clear persisted token
+        db.clearDeviceSession(deviceId);
+        console.log(`[RC5000] session cleared for device ${deviceId}`);
+      } else {
+        // RC5000 rejected logout (likely active operation still open)
+        // Keep token in DB so recovery can cancel+logout next time
+        console.warn(`[RC5000:${device.name}] logout returned ${res.status} — keeping token in DB for recovery`);
+      }
     }
   } catch (err) {
-    console.warn(`[RC5000] logout warning:`, err.message);
-  } finally {
-    sessions.delete(deviceId);
-    db.clearDeviceSession(deviceId);
+    // Keep token in DB — recovery will need it
+    console.warn(`[RC5000] logout HTTP error (token kept for recovery):`, err.message);
   }
 }
 
@@ -197,6 +224,30 @@ async function cancelOperation(deviceId) {
   return response.data;
 }
 
+async function startBackofficeOperation(deviceId, type, denominations = null) {
+  if (sessions.get(deviceId)?.token) {
+    try { await logout(deviceId); } catch {}
+  }
+  await login(deviceId);
+  const device = getDeviceOrThrow(deviceId);
+  const token = getToken(deviceId);
+  const client = getClient(getBaseUrl(device), token);
+  const body = { type };
+  if (denominations && denominations.length) {
+    // RC5000 expects `quantity` (not `level`) and may not accept `currency` in request body
+    body.denominations = denominations.map(d => ({
+      value:    d.value,
+      level:    d.level ?? d.quantity ?? 1,
+      currency: d.currency,
+      type:     d.denomType === 'coins' ? 2 : 1   // 1=notes, 2=coins
+    }));
+  }
+  console.log(`[RC5000:${device.name}] backoffice op type=${type} →`, JSON.stringify(body));
+  const response = await client.post('/operations/start', body);
+  if (response.status !== 200) throw new Error(`Start operation failed — HTTP ${response.status}: ${JSON.stringify(response.data)}`);
+  return response.data;
+}
+
 async function getContent(deviceId) {
   if (sessions.get(deviceId)?.token) {
     try { await logout(deviceId); } catch {}
@@ -210,12 +261,17 @@ async function getContent(deviceId) {
     if (response.status !== 200) throw new Error(`Content failed — HTTP ${response.status}: ${JSON.stringify(response.data)}`);
     return response.data;
   } finally {
-    try { await logout(deviceId); } catch {}
+    try { await logout(deviceId); } catch (e) {
+      console.warn(`[RC5000:${device.name}] content logout warning:`, e.message);
+      // Force clear session even if logout call failed
+      sessions.delete(deviceId);
+      db.clearDeviceSession(deviceId);
+    }
   }
 }
 
 module.exports = {
   login, logout, getStatus, getHeartbeat,
   startPayinAmount, startPayoutAmount, getOperationStatus, finishOperation, cancelOperation,
-  getContent, sessions
+  startBackofficeOperation, getContent, sessions
 };

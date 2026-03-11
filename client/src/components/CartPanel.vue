@@ -102,8 +102,8 @@ defineEmits(['checkout', 'manual-amount'])
   display: flex;
   flex-direction: column;
   height: 100%;
-  width: 340px;
-  min-width: 300px;
+  width: 300px;
+  min-width: 260px;
   flex-shrink: 0;
 }
 
@@ -118,18 +118,18 @@ defineEmits(['checkout', 'manual-amount'])
 .cart-title {
   align-items: center;
   display: flex;
-  font-size: 18px;
+  font-size: 1.2rem;
   font-weight: 700;
   gap: 8px;
 }
 
-.cart-icon { font-size: 20px; }
+.cart-icon { font-size: 1.33rem; }
 
 .cart-badge {
   background: var(--color-primary);
   border-radius: 20px;
   color: white;
-  font-size: 12px;
+  font-size: 0.8rem;
   font-weight: 700;
   min-width: 22px;
   padding: 2px 6px;
@@ -142,7 +142,7 @@ defineEmits(['checkout', 'manual-amount'])
   border-radius: var(--radius-sm);
   color: var(--color-text-2);
   cursor: pointer;
-  font-size: 13px;
+  font-size: 0.87rem;
   padding: 6px 12px;
   transition: border-color 0.15s, color 0.15s;
 }
@@ -169,17 +169,17 @@ defineEmits(['checkout', 'manual-amount'])
   padding: 10px 12px;
 }
 
-.item-emoji { font-size: 24px; text-align: center; }
+.item-emoji { font-size: 1.6rem; text-align: center; }
 
 .item-info { min-width: 0; }
 .item-name {
-  font-size: 14px;
+  font-size: 0.93rem;
   font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.item-unit-price { color: var(--color-text-3); font-size: 12px; margin-top: 2px; }
+.item-unit-price { color: var(--color-text-3); font-size: 0.8rem; margin-top: 2px; }
 
 .item-controls {
   align-items: center;
@@ -195,7 +195,7 @@ defineEmits(['checkout', 'manual-amount'])
   border-radius: 50%;
   color: var(--color-text);
   cursor: pointer;
-  font-size: 18px;
+  font-size: 1.2rem;
   height: 32px;
   line-height: 1;
   transition: background 0.15s;
@@ -205,7 +205,7 @@ defineEmits(['checkout', 'manual-amount'])
 .qty-btn:active { background: var(--color-primary-alpha); color: var(--color-primary); }
 
 .qty-value {
-  font-size: 14px;
+  font-size: 0.93rem;
   font-weight: 700;
   min-width: 24px;
   text-align: center;
@@ -213,7 +213,7 @@ defineEmits(['checkout', 'manual-amount'])
 
 .item-subtotal {
   color: var(--color-primary);
-  font-size: 14px;
+  font-size: 0.93rem;
   font-weight: 700;
   text-align: right;
   white-space: nowrap;
@@ -225,7 +225,7 @@ defineEmits(['checkout', 'manual-amount'])
   border-radius: 50%;
   color: var(--color-text-3);
   cursor: pointer;
-  font-size: 12px;
+  font-size: 0.8rem;
   height: 24px;
   transition: color 0.15s, background 0.15s;
   width: 24px;
@@ -248,9 +248,9 @@ defineEmits(['checkout', 'manual-amount'])
   padding: 60px 20px;
   text-align: center;
 }
-.empty-icon { font-size: 48px; opacity: 0.3; }
-.cart-empty p { color: var(--color-text-2); font-size: 15px; font-weight: 500; }
-.empty-sub { color: var(--color-text-3); font-size: 13px; }
+.empty-icon { font-size: 3.2rem; opacity: 0.3; }
+.cart-empty p { color: var(--color-text-2); font-size: 1rem; font-weight: 500; }
+.empty-sub { color: var(--color-text-3); font-size: 0.87rem; }
 
 /* Footer */
 .cart-footer {
@@ -261,7 +261,7 @@ defineEmits(['checkout', 'manual-amount'])
 .summary-row {
   display: flex;
   justify-content: space-between;
-  font-size: 14px;
+  font-size: 0.93rem;
   color: var(--color-text-2);
   margin-bottom: 8px;
 }
@@ -271,13 +271,13 @@ defineEmits(['checkout', 'manual-amount'])
   margin-top: 8px;
   padding-top: 12px;
   color: var(--color-text);
-  font-size: 16px;
+  font-size: 1.07rem;
   font-weight: 600;
 }
 
 .total-amount {
   color: var(--color-primary);
-  font-size: 20px;
+  font-size: 1.33rem;
   font-weight: 700;
 }
 
@@ -303,7 +303,7 @@ defineEmits(['checkout', 'manual-amount'])
   border-radius: 50%; transition: transform 0.2s;
 }
 .refund-toggle.active .refund-toggle-thumb { transform: translateX(16px); }
-.refund-toggle-label { font-size: 13px; color: var(--color-text-2); }
+.refund-toggle-label { font-size: 0.87rem; color: var(--color-text-2); }
 .refund-toggle.active .refund-toggle-label { color: var(--color-warning); font-weight: 600; }
 
 .btn-manual-amount {
@@ -311,7 +311,7 @@ defineEmits(['checkout', 'manual-amount'])
   width: 100%; padding: 8px; margin-bottom: 8px;
   background: transparent; border: 1px dashed var(--color-border);
   border-radius: var(--radius-sm); color: var(--color-text-2);
-  font-size: 13px; cursor: pointer; transition: all 0.15s;
+  font-size: 0.87rem; cursor: pointer; transition: all 0.15s;
 }
 .btn-manual-amount:hover { border-color: var(--color-primary); color: var(--color-primary); }
 .btn-checkout {
@@ -323,7 +323,7 @@ defineEmits(['checkout', 'manual-amount'])
   cursor: pointer;
   display: flex;
   font-family: var(--font-family);
-  font-size: 16px;
+  font-size: 1.07rem;
   font-weight: 700;
   gap: 10px;
   justify-content: center;
@@ -337,5 +337,5 @@ defineEmits(['checkout', 'manual-amount'])
 .btn-checkout:hover:not(:disabled) { opacity: 0.9; }
 .btn-checkout:active:not(:disabled) { transform: scale(0.98); }
 .btn-checkout:disabled { opacity: 0.4; cursor: not-allowed; }
-.checkout-icon { font-size: 20px; }
+.checkout-icon { font-size: 1.33rem; }
 </style>
